@@ -2,7 +2,7 @@ use crate::controller::Controller;
 
 use anyhow::Result;
 use google_cloud_compute_v1::model::instance::Status;
-use poise::FrameworkOptions;
+use poise::{Framework, FrameworkOptions, serenity_prelude::*};
 
 pub struct PoiseState {
     pub controller: Controller,
@@ -52,4 +52,30 @@ pub fn framework_options() -> FrameworkOptions<PoiseState, anyhow::Error> {
         commands: vec![status()],
         ..Default::default()
     }
+}
+
+/// Sets up the Discord client.
+pub async fn setup(
+    controller: Controller,
+    token: String,
+) -> Result<poise::serenity_prelude::Client> {
+    let framework = Framework::builder()
+        .options(framework_options())
+        .setup(
+            // called when discord connects. registering guild-specific may be faster?
+            move |ctx, _ready, framework| {
+                Box::pin(async move {
+                    let controller = controller;
+                    poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                    Ok(PoiseState { controller })
+                })
+            },
+        )
+        .build();
+
+    let client = ClientBuilder::new(token, GatewayIntents::non_privileged())
+        .framework(framework)
+        .await?;
+
+    Ok(client)
 }
