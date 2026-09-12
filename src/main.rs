@@ -1,7 +1,8 @@
-#![allow(unused)]
+#![warn(clippy::pedantic)]
+#![allow(clippy::enum_glob_use)]
 
-use anyhow::{Result, anyhow, bail};
-use google_cloud_compute_v1::{builder::projects, client::Instances, model::instance::Status};
+use anyhow::{Result, anyhow};
+use google_cloud_compute_v1::{client::Instances, model::instance::Status};
 use google_cloud_secretmanager_v1::{client::SecretManagerService, model::SecretPayload};
 use poise::{Framework, FrameworkOptions, serenity_prelude::*};
 
@@ -11,6 +12,7 @@ const ZONE: &str = "europe-west1-c";
 
 enum SecretId {
     Discord,
+    #[expect(dead_code)]
     DeSec,
 }
 
@@ -58,8 +60,10 @@ type Context<'a> = poise::Context<'a, (), anyhow::Error>;
 
 #[poise::command(slash_command)]
 async fn status(ctx: Context<'_>) -> Result<()> {
+    // probably doesn't need defer()
     let status = get_status().await?;
-    ctx.say(format!("{status:?}"));
+
+    ctx.say(format!("{status:?}")).await?;
 
     Ok(())
 }
