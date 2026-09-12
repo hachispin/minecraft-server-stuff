@@ -1567,7 +1567,7 @@ dependencies = [
 
 [[package]]
 name = "minecraft-server-stuff"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "google-cloud-compute-v1",
