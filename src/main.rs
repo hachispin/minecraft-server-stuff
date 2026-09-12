@@ -16,6 +16,7 @@ const ZONE: &str = "europe-west1-c";
 const DESEC_UPDATE: &str = "https://update.dedyn.io/";
 const DESEC_DNS: &str = "https://hachispin.dedyn.io/";
 
+/// Available secrets.
 enum SecretId {
     Discord,
     #[expect(dead_code)]
@@ -33,10 +34,14 @@ impl SecretId {
     }
 }
 
-/// Also stringifies the payload. Because raw bytes are rarely useful.
+/// Returns the specified secret's payload.
 ///
-/// Can also assume `secret_id` exists because it's an
-/// enum, so treats it not being there as go boom y'know??
+/// This also stringifies the payload, because raw bytes are rarely useful.
+///
+/// # Errors
+///
+/// - If no payload is found for `secret_id`
+/// - Other typical stuff
 async fn get_secret(secret_id: &SecretId) -> Result<String> {
     let secret_id = secret_id.as_str();
     let service = SecretManagerService::builder().build().await?;
@@ -56,6 +61,7 @@ async fn get_secret(secret_id: &SecretId) -> Result<String> {
     Ok(String::from_utf8(payload.data.to_vec())?)
 }
 
+/// Gets the status for the Minecraft VM.
 async fn get_status() -> Result<Option<Status>> {
     let client = Instances::builder().build().await?;
 
@@ -70,6 +76,9 @@ async fn get_status() -> Result<Option<Status>> {
     Ok(response.status)
 }
 
+/// Gets the current external IPv4 address of the Minecraft VM.
+///
+/// Returns the first if there are multiple. There shouldn't be multiple though.
 async fn get_ipv4() -> Result<Option<Ipv4Addr>> {
     let client = Instances::builder().build().await?;
 
@@ -90,6 +99,26 @@ async fn get_ipv4() -> Result<Option<Ipv4Addr>> {
     Ok(ip_string.and_then(|s| s.parse::<Ipv4Addr>().ok()))
 }
 
+/// Modifies the deSEC DNS to point to the current external IPv4 address of the Minecraft VM.
+///
+/// Should be run every time the Minecraft VM starts.
+async fn set_dns_ipv4(ipv4: Ipv4Addr) -> Result<()> {
+    let token = get_secret(&SecretId::DeSec).await?;
+    let client = reqwest::Client::new();
+
+    let response = client
+        .get(DESEC_UPDATE)
+        .query(&[("hostname", DESEC_DNS), ("myipv4", &ipv4.to_string())])
+        .header("Authorization", format!("Token {token}"))
+        .send()
+        .await?;
+
+    response.error_for_status()?;
+
+    Ok(())
+}
+
+/// Wrapper around [`get_status`] for Discord.
 #[poise::command(slash_command)]
 async fn status(ctx: Context<'_>) -> Result<()> {
     use Status::*;
