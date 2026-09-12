@@ -2,6 +2,7 @@ use std::net::Ipv4Addr;
 
 use anyhow::{Result, bail};
 use google_cloud_compute_v1::{client::Instances, model::instance::Status};
+use google_cloud_lro::Poller;
 use google_cloud_secretmanager_v1::client::SecretManagerService;
 
 const PROJECT: &str = "project-c863d0a5-25e6-435f-8b4";
@@ -49,7 +50,7 @@ impl Controller {
     ///
     /// - If no payload is found for `secret_id`
     /// - Other typical stuff
-    pub async fn get_secret(&self, secret_id: &SecretId) -> Result<String> {
+    pub async fn get_secret(&self, secret_id: SecretId) -> Result<String> {
         let secret_id = secret_id.as_str();
 
         let response = self
@@ -108,7 +109,7 @@ impl Controller {
     ///
     /// Should be run every time the Minecraft VM starts.
     async fn set_dns_ipv4(&self, ipv4: Ipv4Addr) -> Result<()> {
-        let token = self.get_secret(&SecretId::DeSec).await?;
+        let token = self.get_secret(SecretId::DeSec).await?;
         let client = reqwest::Client::new();
 
         let response = client
@@ -119,6 +120,39 @@ impl Controller {
             .await?;
 
         response.error_for_status()?;
+
+        Ok(())
+    }
+
+    /// Starts the VM. Polls until done in order to set DNS.
+    pub async fn start_vm(&self) -> Result<()> {
+        self.instances_client
+            .start()
+            .set_project(PROJECT)
+            .set_zone(ZONE)
+            .set_instance(NAME)
+            .poller()
+            .until_done()
+            .await?;
+
+        let Some(ip) = self.get_ipv4().await? else {
+            bail!("VM has no external IPv4 address!?");
+        };
+
+        self.set_dns_ipv4(ip).await?;
+
+        Ok(())
+    }
+
+    /// Stops the VM. **Does not poll until done**.
+    pub async fn stop_vm(&self) -> Result<()> {
+        self.instances_client
+            .stop()
+            .set_project(PROJECT)
+            .set_zone(ZONE)
+            .set_instance(NAME)
+            .send()
+            .await?;
 
         Ok(())
     }

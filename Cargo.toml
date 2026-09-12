@@ -7,6 +7,7 @@ repository = "https://github.com/hachispin/minecraft-server-stuff"
 [dependencies]
 anyhow = "1.0.104"
 google-cloud-compute-v1 = "3.5.0"
+google-cloud-lro = "1.10.0"
 google-cloud-secretmanager-v1 = "1.13.0"
 poise = "0.7.0"
 reqwest = "0.13.4"

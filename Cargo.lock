@@ -1571,6 +1571,7 @@ version = "0.2.1"
 dependencies = [
  "anyhow",
  "google-cloud-compute-v1",
+ "google-cloud-lro",
  "google-cloud-secretmanager-v1",
  "poise",
  "reqwest 0.13.5",

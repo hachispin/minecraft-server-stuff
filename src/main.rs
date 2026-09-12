@@ -11,7 +11,7 @@ use anyhow::Result;
 #[tokio::main]
 async fn main() -> Result<()> {
     let controller = Controller::new().await?;
-    let token = controller.get_secret(&SecretId::Discord).await?;
+    let token = controller.get_secret(SecretId::Discord).await?;
     let mut client = discord::setup(controller, token).await?;
 
     client.start().await?;
