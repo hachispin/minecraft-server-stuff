@@ -4,3 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.104"
+google-cloud-compute-v1 = "3.5.0"
+google-cloud-secretmanager-v1 = "1.13.0"
+poise = "0.7.0"
+reqwest = "0.13.4"
+tokio = "1.53.1"
