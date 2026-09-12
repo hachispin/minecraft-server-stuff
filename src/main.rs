@@ -6,6 +6,8 @@ use google_cloud_compute_v1::{client::Instances, model::instance::Status};
 use google_cloud_secretmanager_v1::{client::SecretManagerService, model::SecretPayload};
 use poise::{Framework, FrameworkOptions, serenity_prelude::*};
 
+type Context<'a> = poise::Context<'a, (), anyhow::Error>;
+
 const PROJECT: &str = "project-c863d0a5-25e6-435f-8b4";
 const NAME: &str = "minecraft-server";
 const ZONE: &str = "europe-west1-c";
@@ -56,14 +58,38 @@ async fn get_status() -> Result<Option<Status>> {
     Ok(response.status)
 }
 
-type Context<'a> = poise::Context<'a, (), anyhow::Error>;
-
 #[poise::command(slash_command)]
 async fn status(ctx: Context<'_>) -> Result<()> {
-    // probably doesn't need defer()
-    let status = get_status().await?;
+    use Status::*;
 
-    ctx.say(format!("{status:?}")).await?;
+    let Some(status) = get_status().await? else {
+        ctx.say("No status returned… :(").await?;
+        return Ok(());
+    };
+
+    let message = match status {
+        Running => "Online",
+        Terminated | Stopped => "Offline",
+        Provisioning | Staging | Pending => "Starting",
+        Deprovisioning | Stopping | PendingStop => "Stopping",
+        Suspending => "Suspending",
+        Suspended => "Suspended",
+        Repairing => "Repairing",
+
+        UnknownValue(v) => {
+            return Ok(ctx.say(format!("Unknown value: {v:?}")).await.map(|_| ())?);
+        }
+
+        // because it's marked as non-exhaustive
+        s => {
+            return Ok(ctx
+                .say(format!("Uncovered status: {s:?}"))
+                .await
+                .map(|_| ())?);
+        }
+    };
+
+    ctx.say(message).await?;
 
     Ok(())
 }
