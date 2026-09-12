@@ -1,7 +1,9 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::enum_glob_use)]
 
-use anyhow::{Result, anyhow};
+use std::net::Ipv4Addr;
+
+use anyhow::{Result, anyhow, bail};
 use google_cloud_compute_v1::{client::Instances, model::instance::Status};
 use google_cloud_secretmanager_v1::{client::SecretManagerService, model::SecretPayload};
 use poise::{Framework, FrameworkOptions, serenity_prelude::*};
@@ -11,6 +13,8 @@ type Context<'a> = poise::Context<'a, (), anyhow::Error>;
 const PROJECT: &str = "project-c863d0a5-25e6-435f-8b4";
 const NAME: &str = "minecraft-server";
 const ZONE: &str = "europe-west1-c";
+const DESEC_UPDATE: &str = "https://update.dedyn.io/";
+const DESEC_DNS: &str = "https://hachispin.dedyn.io/";
 
 enum SecretId {
     Discord,
@@ -29,7 +33,11 @@ impl SecretId {
     }
 }
 
-async fn get_secret(secret_id: &SecretId) -> Result<Option<SecretPayload>> {
+/// Also stringifies the payload. Because raw bytes are rarely useful.
+///
+/// Can also assume `secret_id` exists because it's an
+/// enum, so treats it not being there as go boom y'know??
+async fn get_secret(secret_id: &SecretId) -> Result<String> {
     let secret_id = secret_id.as_str();
     let service = SecretManagerService::builder().build().await?;
 
@@ -41,7 +49,11 @@ async fn get_secret(secret_id: &SecretId) -> Result<Option<SecretPayload>> {
         .send()
         .await?;
 
-    Ok(response.payload)
+    let Some(payload) = response.payload else {
+        bail!("No payload found for {secret_id}");
+    };
+
+    Ok(String::from_utf8(payload.data.to_vec())?)
 }
 
 async fn get_status() -> Result<Option<Status>> {
@@ -56,6 +68,26 @@ async fn get_status() -> Result<Option<Status>> {
         .await?;
 
     Ok(response.status)
+}
+
+async fn get_ipv4() -> Result<Option<Ipv4Addr>> {
+    let client = Instances::builder().build().await?;
+
+    let response = client
+        .get()
+        .set_project(PROJECT)
+        .set_zone(ZONE)
+        .set_instance(NAME)
+        .send()
+        .await?;
+
+    let ip_string = response
+        .network_interfaces
+        .iter()
+        .flat_map(|ni| &ni.access_configs)
+        .find_map(|cfg| cfg.nat_ip.as_ref());
+
+    Ok(ip_string.and_then(|s| s.parse::<Ipv4Addr>().ok()))
 }
 
 #[poise::command(slash_command)]
@@ -98,6 +130,9 @@ async fn status(ctx: Context<'_>) -> Result<()> {
 async fn main() -> Result<()> {
     println!("Hello, world!");
 
+    let token = get_secret(&SecretId::Discord).await?;
+    let intents = GatewayIntents::non_privileged();
+
     let framework_options = FrameworkOptions {
         commands: vec![status()],
         ..Default::default()
@@ -116,13 +151,7 @@ async fn main() -> Result<()> {
         )
         .build();
 
-    let intents = GatewayIntents::non_privileged();
-
-    let token = get_secret(&SecretId::Discord)
-        .await?
-        .ok_or_else(|| anyhow!("Failed to fetch Discord token!"))?;
-
-    let mut client = ClientBuilder::new(String::from_utf8(token.data.to_vec())?, intents)
+    let mut client = ClientBuilder::new(token, intents)
         .framework(framework)
         .await?;
 
