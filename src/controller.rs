@@ -9,12 +9,12 @@ const PROJECT: &str = "project-c863d0a5-25e6-435f-8b4";
 const NAME: &str = "minecraft-server";
 const ZONE: &str = "europe-west1-c";
 const DESEC_UPDATE: &str = "https://update.dedyn.io/";
-const DESEC_DNS: &str = "https://hachispin.dedyn.io/";
+/// Must be hostname.
+const DESEC_DNS: &str = "hachispin.dedyn.io";
 
 /// Available secrets.
 pub enum SecretId {
     Discord,
-    #[expect(dead_code)]
     DeSec,
 }
 
