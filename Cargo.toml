@@ -2,6 +2,7 @@
 name = "minecraft-server-stuff"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/hachispin/minecraft-server-stuff"
 
 [dependencies]
 anyhow = "1.0.104"
@@ -10,3 +11,8 @@ google-cloud-secretmanager-v1 = "1.13.0"
 poise = "0.7.0"
 reqwest = "0.13.4"
 tokio = "1.53.1"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
