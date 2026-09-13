@@ -12,6 +12,13 @@ const DESEC_UPDATE: &str = "https://update.dedyn.io/";
 /// Must be hostname.
 const DESEC_DNS: &str = "hachispin.dedyn.io";
 
+/// I'm lazy.
+macro_rules! set_fields {
+    ($inst:expr) => {
+        $inst.set_project(PROJECT).set_zone(ZONE).set_instance(NAME)
+    };
+}
+
 /// Available secrets.
 pub enum SecretId {
     Discord,
@@ -71,14 +78,7 @@ impl Controller {
 
     /// Gets the status for the Minecraft VM.
     pub async fn get_status(&self) -> Result<Option<Status>> {
-        let response = self
-            .instances_client
-            .get()
-            .set_project(PROJECT)
-            .set_zone(ZONE)
-            .set_instance(NAME)
-            .send()
-            .await?;
+        let response = set_fields!(self.instances_client.get()).send().await?;
 
         Ok(response.status)
     }
@@ -87,14 +87,7 @@ impl Controller {
     ///
     /// Returns the first if there are multiple. There shouldn't be multiple though.
     async fn get_ipv4(&self) -> Result<Option<Ipv4Addr>> {
-        let response = self
-            .instances_client
-            .get()
-            .set_project(PROJECT)
-            .set_zone(ZONE)
-            .set_instance(NAME)
-            .send()
-            .await?;
+        let response = set_fields!(self.instances_client.get()).send().await?;
 
         let ip_string = response
             .network_interfaces
@@ -126,11 +119,7 @@ impl Controller {
 
     /// Starts the VM. Polls until done in order to set DNS.
     pub async fn start_vm(&self) -> Result<()> {
-        self.instances_client
-            .start()
-            .set_project(PROJECT)
-            .set_zone(ZONE)
-            .set_instance(NAME)
+        set_fields!(self.instances_client.start())
             .poller()
             .until_done()
             .await?;
@@ -146,13 +135,7 @@ impl Controller {
 
     /// Stops the VM. **Does not poll until done**.
     pub async fn stop_vm(&self) -> Result<()> {
-        self.instances_client
-            .stop()
-            .set_project(PROJECT)
-            .set_zone(ZONE)
-            .set_instance(NAME)
-            .send()
-            .await?;
+        set_fields!(self.instances_client.stop()).send().await?;
 
         Ok(())
     }
